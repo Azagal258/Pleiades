@@ -6,47 +6,14 @@ import os
 
 ### Function land ###
 
-def ensure_dir_exists(dir_path: str):
-    """
-    Makes a dir, if it doesn't exist
-
-    Parameters :
-    dir_path (str) : path to dir
-
-    Output :
-    A fancy new dir, if needed (^-^)/
-    """
-
-    if not os.path.exists(dir_path):
-        os.makedirs(dir_path)
-        print(f"Directory '{dir_path}' created.")
-
 def ensure_file_exists(file_path: str):
-    """
-    Makes a file, if it doesn't exist
-
-    Parameters :
-    file_path (str) : path to files
-
-    Output :
-    A fancy new file, if needed (^-^)/
-    """
-
     if not os.path.exists(file_path):
         with open(file_path, 'w') as f:
             f.write('0')
         print(f"File '{file_path}' created.")
 
-def check_typo(group: str) -> str:
-    """
-    Ensures correct typo of groups
-
-    Parameters :
-    group (str) : name of the group
-
-    Output :
-    group_out (str) : formatted group name
-    """
+def parse_group_name(group: str) -> str:
+    """Ensures that the correct formatting for processing"""
 
     if group.lower() in ["3s", "3 s", "triples", "triple s"]:
         group_out = "tripleS"
@@ -54,7 +21,7 @@ def check_typo(group: str) -> str:
         group_out = group.lower()
     return group_out
 
-def make_request(group: str, timestamp:str) -> json:
+def fetch_objekt_data(group: str, timestamp:str) -> json:
     """
     Will make a request to Nova api to return since the last time the code was run for a specific group
 
@@ -144,7 +111,6 @@ def download_objekts(group, id, front):
 
         # Check if the request was successful
         if response.status_code == 200:
-            # Open the image using PIL
             with open(file_path, 'wb') as f:
                 f.write(response.content)
             cnt += 1
@@ -155,37 +121,32 @@ def download_objekts(group, id, front):
 
 ### Process ###
 
-# Create dirs
-ensure_dir_exists('./artms')
-ensure_dir_exists('./tripleS')
+if __name__ == '__main__':
+    
+    # Ensures correct typo
+    group = parse_group_name(input("Which group?\n"))
+    
+    # Create env
+    os.makedirs(f'./{group}', exist_ok=True)
+    ensure_file_exists(f'timestamp-{group}.txt')
 
-# Create timestamps files
-ensure_file_exists('timestamp-artms.txt')
-ensure_file_exists('timestamp-tripleS.txt')
+    # Checks last most recent objekt's timestamp + Informs
+    with open(f"timestamp-{group}.txt", "r") as f:
+        timestamp = f.read()
+        print("Old timestamp : ", timestamp)
 
-# Ensures correct typo
-group = check_typo(input("Which group?\n"))
+    # gets JSON data from API
+    data = fetch_objekt_data(group, timestamp)
 
-# Checks last most recent objekt's timestamp + Informs
-with open(f"timestamp-{group}.txt", "r") as f:
-    timestamp = f.read()
-    print("Old timestamp : ", timestamp)
+    id = get_all_values_by_key(data, "id")
+    front = get_all_values_by_key(data, "front")
+    time = max(get_all_values_by_key(data, "timestamp"))
 
-# gets JSON data from API
-data = make_request(group, timestamp)
+    print("New timestamp : ", time)
+    print("# of objekts : " , len(id))
 
-# Get all values for the specified keys
-id = get_all_values_by_key(data, "id")
-front = get_all_values_by_key(data, "front")
-time = max(get_all_values_by_key(data, "timestamp"))
+    # Saves new most recent objekt's timestamp
+    with open(f"timestamp-{group}.txt", "w") as f:
+        f.write(time)
 
-# General infos
-print("New timestamp : ", time)
-print("# of objekts : " , len(id))
-
-# Saves new most recent objekt's timestamp
-with open(f"timestamp-{group}.txt", "w") as f:
-    f.write(time)
-
-# Self explanatory
-download_objekts(group, id, front)
+    download_objekts(group, id, front)
