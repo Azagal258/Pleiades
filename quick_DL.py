@@ -33,7 +33,7 @@ def fetch_objekt_data(group: str, timestamp:str) -> json:
     objekts (json) : json containing ids, fronts, and timestamps of all objekts requested
     """
 
-    url = 'https://squid.subsquid.io/cosmo/graphql'
+    url = 'https://cosmo-api.gillespie.eu/graphql'
     query = f'''
     query MyQuery {{
         collections(where: {{ artists_containsAll: "{group}", timestamp_gt: "{timestamp}" }})  
@@ -46,8 +46,7 @@ def fetch_objekt_data(group: str, timestamp:str) -> json:
     '''
 
     headers = {
-        'Content-Type': 'application/json',
-        'Origin': 'https://nova.gd'
+        'Content-Type': 'application/json'
     }
     data = {'query': query}
 
@@ -150,3 +149,8 @@ if __name__ == '__main__':
         f.write(time)
 
     download_objekts(group, id, front)
+
+# 37564 000000000000000 000
+# 26001 000000000000000 000
+# 40 000000000000000000
+# 5  000000000000000000
