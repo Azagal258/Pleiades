@@ -132,11 +132,15 @@ if __name__ == '__main__':
     # Checks last most recent objekt's timestamp + Informs
     with open(f"timestamp-{group}.txt", "r") as f:
         timestamp = f.read()
-        print("Old timestamp : ", timestamp)
 
     # gets JSON data from API
     data = fetch_objekt_data(group, timestamp)
+    if data == []:
+        print("No new Objekts to download, try again later")
+        input("Press Enter to quit...")
+        exit()
 
+    print("Old timestamp : ", timestamp)
     id = get_all_values_by_key(data, "id")
     front = get_all_values_by_key(data, "front")
     time = max(get_all_values_by_key(data, "timestamp"))
