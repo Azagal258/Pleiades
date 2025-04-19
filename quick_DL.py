@@ -7,6 +7,7 @@ import os
 ### Function land ###
 
 def ensure_file_exists(file_path: str):
+    """Makes the timestamp files for avoiding to querry the whole DB each time"""
     if not os.path.exists(file_path):
         with open(file_path, 'w') as f:
             f.write('0')
@@ -25,16 +26,16 @@ def parse_group_name() -> str:
         group_out = parse_group_name()
     return group_out
 
-def fetch_objekt_data(group: str, timestamp:str) -> json:
+def fetch_objekt_data(group: str, timestamp:str) -> list:
     """
     Will make a request to Nova api to return since the last time the code was run for a specific group
 
     Parameters :
-    group (str) : the group name
-    timestamp (str) : the value located in timestamp-*insert group*.txt
+    - group (str) : the group name
+    - timestamp (str) : the value located in timestamp-*insert group*.txt
 
     Output :
-    objekts (json) : json containing ids, fronts, and timestamps of all objekts requested
+    - objekts (json) : json containing ids, fronts, and timestamps of all objekts requested
     """
 
     url = 'https://cosmo-api.gillespie.eu/graphql'
@@ -63,16 +64,16 @@ def fetch_objekt_data(group: str, timestamp:str) -> json:
             print(e)
     return objekts
 
-def get_all_values_by_key(data: json, target_key: str, results=None) -> list:
+def get_all_values_by_key(data: dict, target_key: str, results=None) -> list:
     """
-    Find all values tied to a specific key in the given json
+    Find all values tied to a specific key in the given json\n
 
     Parameters :
-    data (json) : The json containing all data
-    target_key (str) : The key from which all values will be extracted from
+    - data (json) : The json containing all data
+    - target_key (str) : The key from which all values will be extracted from
 
     Output :
-    result (list) : The list containing all data of a given key
+    - result (list) : The list containing all data of a given key\n
     """
 
     if results is None:
@@ -83,17 +84,17 @@ def get_all_values_by_key(data: json, target_key: str, results=None) -> list:
     
     return results
 
-def download_objekts(group, id, front):
+def download_objekts(group: str, id: list, front: list) -> None:
     """
     Downloads all objekts requested and puts them into the adapted folder
 
     Parameters :
-    group (str) : formatted group name
-    id (list) : all names of pictures
-    front (list) : all URL to get pictures from
+    - group (str) : formatted group name
+    - id (list) : all names of pictures
+    - front (list) : all URL to get pictures from
 
     Output :
-    A fancy new batch of pic (^-^)/
+    - A fancy new batch of pics (^-^)/
     """
     
     cnt = 0
