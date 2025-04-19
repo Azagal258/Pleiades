@@ -12,13 +12,17 @@ def ensure_file_exists(file_path: str):
             f.write('0')
         print(f"File '{file_path}' created.")
 
-def parse_group_name(group: str) -> str:
+def parse_group_name() -> str:
     """Ensures that the correct formatting for processing"""
 
+    group = input("Which group's Objetks do you want to download?\n")
     if group.lower() in ["3s", "3 s", "triples", "triple s"]:
         group_out = "tripleS"
+    elif group.lower() == "artms":
+        group_out = "artms"
     else:
-        group_out = group.lower()
+        print("Group unknown, verify for any typo.")
+        group_out = parse_group_name()
     return group_out
 
 def fetch_objekt_data(group: str, timestamp:str) -> json:
@@ -118,12 +122,16 @@ def download_objekts(group, id, front):
         else:
             print(f"Failed to retrieve file. Status code: {response.status_code}")
 
-### Process ###
+def new_batch_prompt() -> None:
+    if input("Download a new batch? (y/n)\n") in ["yes","y"]:
+        main()
+    else:
+        print("Shutting down...")
+        exit()
 
-if __name__ == '__main__':
-    
+def main() -> None:
     # Ensures correct typo
-    group = parse_group_name(input("Which group?\n"))
+    group = parse_group_name()
     
     # Create env
     os.makedirs(f'./{group}', exist_ok=True)
@@ -136,9 +144,8 @@ if __name__ == '__main__':
     # gets JSON data from API
     data = fetch_objekt_data(group, timestamp)
     if data == []:
-        print("No new Objekts to download, try again later")
-        input("Press Enter to quit...")
-        exit()
+        print("No new Objekts to download, try again later.")
+        new_batch_prompt()
 
     print("Old timestamp : ", timestamp)
     id = get_all_values_by_key(data, "id")
@@ -153,8 +160,11 @@ if __name__ == '__main__':
         f.write(time)
 
     download_objekts(group, id, front)
+    print("Download finished")
 
-# 37564 000000000000000 000
-# 26001 000000000000000 000
-# 40 000000000000000000
-# 5  000000000000000000
+    new_batch_prompt()
+
+### Process ###
+
+if __name__ == '__main__':
+    main()
