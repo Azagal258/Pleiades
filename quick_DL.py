@@ -78,15 +78,8 @@ def get_all_values_by_key(data: json, target_key: str, results=None) -> list:
     if results is None:
         results = []
     
-    if isinstance(data, dict):
-        for key, value in data.items():
-            if key == target_key:
-                results.append(value)
-            elif isinstance(value, (dict, list)):
-                get_all_values_by_key(value, target_key, results)
-    elif isinstance(data, list):
-        for item in data:
-            get_all_values_by_key(item, target_key, results)
+    for item in data:
+        results.append(item[f"{target_key}"])
     
     return results
 
