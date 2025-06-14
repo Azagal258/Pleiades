@@ -7,7 +7,7 @@ import os
 ### Function land ###
 
 def ensure_file_exists(file_path: str):
-    """Makes the timestamp files for avoiding to querry the whole DB each time"""
+    """Create the timestamp files to avoid querying the entire DB each time"""
     if not os.path.exists(file_path):
         with open(file_path, 'w') as f:
             f.write('0')
@@ -18,34 +18,40 @@ def parse_group_name() -> str:
 
     group = input("Which group's Objetks do you want to download?\n")
     if group.lower() in ["3s", "3 s", "triples", "triple s"]:
-        group_out = "tripleS"
+        group_out = "triples"
     elif group.lower() == "artms":
         group_out = "artms"
+    elif group.lower() == "idntt":
+        group_out = "idntt"
     else:
         print("Group unknown, verify for any typo.")
         group_out = parse_group_name()
     return group_out
 
 def fetch_objekt_data(group: str, timestamp:str) -> list:
+    """Will make a request to Pulsar's API to return since the last time the code was run for a specific group
+
+    Parameters
+    ----------
+    - group : str
+        Name of the wanted group
+    - timestamp : str
+        The ISO 8601 date located in timestamp-*group*.txt
+
+    Returns
+    -------
+    - objekts : json
+        json containing names, front images, and timestamps of all objekts requested
     """
-    Will make a request to Nova api to return since the last time the code was run for a specific group
 
-    Parameters :
-    - group (str) : the group name
-    - timestamp (str) : the value located in timestamp-*insert group*.txt
-
-    Output :
-    - objekts (json) : json containing ids, fronts, and timestamps of all objekts requested
-    """
-
-    url = 'https://cosmo-api.gillespie.eu/graphql'
+    url = 'http://localhost:4351/graphql'
     query = f'''
     query MyQuery {{
-        collections(where: {{ artists_containsAll: "{group}", timestamp_gt: "{timestamp}" }})  
+        collections(where: {{ artist_eq: "{group}", createdAt_gt: "{timestamp}" }})  
         {{
-        id
-        front
-        timestamp
+        slug
+        frontImage
+        createdAt
         }}
     }}
     '''
@@ -65,15 +71,18 @@ def fetch_objekt_data(group: str, timestamp:str) -> list:
     return objekts
 
 def get_all_values_by_key(data: dict, target_key: str, results=None) -> list:
-    """
-    Find all values tied to a specific key in the given json\n
+    """Find all values tied to a specific key in the given json
 
-    Parameters :
-    - data (json) : The json containing all data
-    - target_key (str) : The key from which all values will be extracted from
+    Parameters
+    ----------
+    - data : json
+        Result of the API request
+    - target_key : str
+        The key from which all values will be extracted from
 
-    Output :
-    - result (list) : The list containing all data of a given key\n
+    Returns :
+    - result : list
+        The list containing all data of a given key
     """
 
     if results is None:
@@ -84,44 +93,43 @@ def get_all_values_by_key(data: dict, target_key: str, results=None) -> list:
     
     return results
 
-def download_objekts(group: str, id: list, front: list) -> None:
-    """
-    Downloads all objekts requested and puts them into the adapted folder
+def download_objekts(group: str, objekt_list:dict) -> None:
+    """Downloads all objekts requested and puts them into the adapted folder
 
-    Parameters :
-    - group (str) : formatted group name
-    - id (list) : all names of pictures
-    - front (list) : all URL to get pictures from
+    Parameters
+    ----------
+    group : str
+        Name of the wanted group
+    objekt_list : json
+        json containing all the objekts to be processed (MUST include a slug and frontImage field).
 
-    Output :
-    - A fancy new batch of pics (^-^)/
+    Returns
+    -------
+        A fancy new batch of pics (^-^)/
     """
-    
     cnt = 0
-    for i in range(len(id)):
-
-        # File path where the image will be saved
-        file_path = f'{group}/{id[i]}.png'
-
-        # Send a GET request to the URL
-        response = requests.get(front[i])
-
-        # Check if the request was successful
+    for objekt in objekt_list:
+        file_path = f"{group}/{objekt['slug']}.png"
+        
+        response = requests.get(objekt['frontImage'])
         if response.status_code == 200:
-            with open(file_path, 'wb') as f:
+            with open(file_path, "wb") as f:
                 f.write(response.content)
             cnt += 1
-            if cnt%10 == 0 :
+            if cnt%10 == 0:
                 print(f"{cnt} images downloaded")
         else:
-            print(f"Failed to retrieve file. Status code: {response.status_code}")
+            print(f"Failed to fetch {objekt['slug']}. Error {response.status_code}")
 
 def new_batch_prompt() -> None:
-    if input("Download a new batch? (y/n)\n") in ["yes","y"]:
+    reply = input("Download a new batch? (yes/no)\n")
+    if reply.lower() in ["yes","y"]:
         main()
-    else:
+    elif reply.lower() in ["no","n"]:
         print("Shutting down...")
         exit()
+    else:
+        new_batch_prompt()
 
 def main() -> None:
     # Ensures correct typo
@@ -131,7 +139,7 @@ def main() -> None:
     os.makedirs(f'./{group}', exist_ok=True)
     ensure_file_exists(f'timestamp-{group}.txt')
 
-    # Checks last most recent objekt's timestamp + Informs
+    # Checks last most recent objekt's timestamp
     with open(f"timestamp-{group}.txt", "r") as f:
         timestamp = f.read()
 
@@ -141,19 +149,17 @@ def main() -> None:
         print("No new Objekts to download, try again later.")
         new_batch_prompt()
 
+    # General informations
     print("Old timestamp : ", timestamp)
-    id = get_all_values_by_key(data, "id")
-    front = get_all_values_by_key(data, "front")
-    time = max(get_all_values_by_key(data, "timestamp"))
-
+    time = max(get_all_values_by_key(data, "createdAt"))
     print("New timestamp : ", time)
-    print("# of objekts : " , len(id))
+    print("# of objekts : " , len(data))
 
     # Saves new most recent objekt's timestamp
     with open(f"timestamp-{group}.txt", "w") as f:
         f.write(time)
 
-    download_objekts(group, id, front)
+    download_objekts(group, data)
     print("Download finished")
 
     new_batch_prompt()

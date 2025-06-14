@@ -1,5 +1,4 @@
-tripleS/
-artms/
+*/
+quick_DL_tests.py
 x.txt
-timestamp-artms.txt
-timestamp-tripleS.txt
+timestamp-*.txt
