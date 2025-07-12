@@ -52,6 +52,7 @@ def fetch_objekt_data(group: str, timestamp:str) -> list:
         slug
         frontImage
         createdAt
+        member
         }}
     }}
     '''
@@ -70,30 +71,21 @@ def fetch_objekt_data(group: str, timestamp:str) -> list:
             print(e)
     return objekts
 
-def get_all_values_by_key(data: dict, target_key: str, results=None) -> list:
-    """Find all values tied to a specific key in the given json
+def create_sort_folders(members_list: list, group: str, member_S_number: dict) -> None:
+    for member in members_list:
+        try:
+            path = f'./{group}/{member_S_number[member]}-{member}'
+        except KeyError:
+            if group == "triples":
+                print(f"""
+                      Can't find {member} S number. Ignoring S number for folder creation.\n
+                      Ignore this message if it's a special objekt not tied to a member's name (i.e "S24" or "Icarus")
+                      """)
+            path = f'./{group}/{member}'
+        os.makedirs(path, exist_ok=True)
 
-    Parameters
-    ----------
-    - data : json
-        Result of the API request
-    - target_key : str
-        The key from which all values will be extracted from
 
-    Returns :
-    - result : list
-        The list containing all data of a given key
-    """
-
-    if results is None:
-        results = []
-    
-    for item in data:
-        results.append(item[f"{target_key}"])
-    
-    return results
-
-def download_objekts(group: str, objekt_list:dict) -> None:
+def download_objekts(group: str, objekt_list:dict, member_S_number: dict) -> None:
     """Downloads all objekts requested and puts them into the adapted folder
 
     Parameters
@@ -101,7 +93,9 @@ def download_objekts(group: str, objekt_list:dict) -> None:
     group : str
         Name of the wanted group
     objekt_list : json
-        json containing all the objekts to be processed (MUST include a slug and frontImage field).
+        json containing all the objekts to be processed (MUST include a slug, frontImage and member field)
+    member_S_number: dict
+        dict matching all S numbers for tripleS
 
     Returns
     -------
@@ -109,11 +103,15 @@ def download_objekts(group: str, objekt_list:dict) -> None:
     """
     cnt = 0
     for objekt in objekt_list:
-        file_path = f"{group}/{objekt['slug']}.png"
+        member = objekt["member"]
+        try:
+            path = f'./{group}/{member_S_number[member]}-{member}/{objekt['slug']}.png'
+        except KeyError:
+            path = f'./{group}/{member}/{objekt['slug']}.png'
         
         response = requests.get(objekt['frontImage'])
         if response.status_code == 200:
-            with open(file_path, "wb") as f:
+            with open(path, "wb") as f:
                 f.write(response.content)
             cnt += 1
             if cnt%10 == 0:
@@ -132,6 +130,33 @@ def new_batch_prompt() -> None:
         new_batch_prompt()
 
 def main() -> None:
+    member_S_number = {
+        "SeoYeon" : "S1",
+        "HyeRin" : "S2",
+        "JiWoo" : "S3",
+        "ChaeYeon" : "S4",
+        "YooYeon" : "S5",
+        "SooMin" : "S6",
+        "NaKyoung" : "S7",
+        "YuBin" : "S8",
+        "Kaede" : "S9",
+        "DaHyun" : "S10",
+        "Kotone" : "S11",
+        "YeonJi" : "S12",
+        "Nien" : "S13",
+        "SoHyun" : "S14",
+        "Xinyu" : "S15",
+        "Mayu" : "S16",
+        "Lynn" : "S17",
+        "JooBin" : "S18",
+        "HaYeon" : "S19",
+        "ShiOn" : "S20",
+        "ChaeWon" : "S21",
+        "Sullin" : "S22",
+        "SeoAh" : "S23",
+        "JiYeon" : "S24"
+    }
+    
     # Ensures correct typo
     group = parse_group_name()
     
@@ -148,6 +173,10 @@ def main() -> None:
     if data == []:
         print("No new Objekts to download, try again later.")
         new_batch_prompt()
+    
+    # Creates folders to sort per member
+    members_list = list({item["member"] for item in data})
+    create_sort_folders(members_list, group, member_S_number)
 
     # General informations
     print("Old timestamp : ", timestamp)
@@ -159,7 +188,7 @@ def main() -> None:
     with open(f"timestamp-{group}.txt", "w") as f:
         f.write(time)
 
-    download_objekts(group, data)
+    download_objekts(group, data, member_S_number)
     print("Download finished")
 
     new_batch_prompt()
