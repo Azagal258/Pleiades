@@ -10,7 +10,7 @@ def ensure_file_exists(file_path: str):
     """Create the timestamp files to avoid querying the entire DB each time"""
     if not os.path.exists(file_path):
         with open(file_path, 'w') as f:
-            f.write('0')
+            f.write('1970-01-01T00:00:00.000Z')
         print(f"File '{file_path}' created.")
 
 def parse_group_name() -> str:
@@ -44,7 +44,7 @@ def fetch_objekt_data(group: str, timestamp:str) -> list:
         json containing names, front images, and timestamps of all objekts requested
     """
 
-    url = 'http://localhost:4351/graphql'
+    url = 'https://api.pulsar.azagal.eu/graphql'
     query = f'''
     query MyQuery {{
         collections(where: {{ artist_eq: "{group}", createdAt_gt: "{timestamp}" }})  
@@ -151,7 +151,7 @@ def main() -> None:
 
     # General informations
     print("Old timestamp : ", timestamp)
-    time = max(get_all_values_by_key(data, "createdAt"))
+    time = max([entry["createdAt"] for entry in data])
     print("New timestamp : ", time)
     print("# of objekts : " , len(data))
 
