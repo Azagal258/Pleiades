@@ -69,6 +69,10 @@ def fetch_objekt_data(group: str, timestamp:str) -> list:
             objekts = response.json()['data']['collections']
         except Exception as e:
             print(e)
+            if input("Error while fetching objekt data, do you still want to proceed?").lower() in ["y", "ye", "yes"]:
+                objekts = []
+            else:
+                exit()
     return objekts
 
 def create_sort_folders(members_list: list, group: str, member_S_number: dict) -> None:
