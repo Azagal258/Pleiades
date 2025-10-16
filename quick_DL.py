@@ -188,12 +188,12 @@ def main() -> None:
     print("New timestamp : ", time)
     print("# of objekts : " , len(data))
 
+    download_objekts(group, data, member_S_number)
+    print("Download finished")
+
     # Saves new most recent objekt's timestamp
     with open(f"timestamp-{group}.txt", "w") as f:
         f.write(time)
-
-    download_objekts(group, data, member_S_number)
-    print("Download finished")
 
     new_batch_prompt()
 
