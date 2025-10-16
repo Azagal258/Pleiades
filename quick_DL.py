@@ -3,6 +3,7 @@
 import json
 import requests
 import os
+from datetime import datetime, timezone
 
 ### Function land ###
 
@@ -29,7 +30,7 @@ def parse_group_name() -> str:
     return group_out
 
 def fetch_objekt_data(group: str, timestamp:str) -> list:
-    """Will make a request to Pulsar's API to return since the last time the code was run for a specific group
+    """Requests Pulsar's API all new Objekts since the last run
 
     Parameters
     ----------
@@ -117,6 +118,7 @@ def download_objekts(group: str, objekt_list:dict, member_S_number: dict) -> Non
         if response.status_code == 200:
             with open(path, "wb") as f:
                 f.write(response.content)
+                os.utime(path, (utime_timestamp(objekt['createdAt'])))
             cnt += 1
             if cnt%10 == 0:
                 print(f"{cnt} images downloaded")
@@ -132,6 +134,13 @@ def new_batch_prompt() -> None:
         exit()
     else:
         new_batch_prompt()
+
+def utime_timestamp(timestamp : str) -> float:
+    """Convert an ISO timestamp to a UNIX timstamp"""
+    dt = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+    posixts = dt.timestamp()
+    utimets = (posixts, posixts)
+    return utimets
 
 def main() -> None:
     member_S_number = {
