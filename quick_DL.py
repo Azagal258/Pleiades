@@ -54,6 +54,7 @@ def fetch_objekt_data(group: str, timestamp:str) -> list:
         frontImage
         createdAt
         member
+        class
         }}
     }}
     '''
@@ -89,8 +90,7 @@ def create_sort_folders(members_list: list, group: str, member_S_number: dict) -
             path = f'./{group}/{member}'
         os.makedirs(path, exist_ok=True)
 
-
-def download_objekts(group: str, objekt_list:dict, member_S_number: dict) -> None:
+def download_objekts(group: str, objekt_list:list[dict], member_S_number: dict) -> None:
     """Downloads all objekts requested and puts them into the adapted folder
 
     Parameters
@@ -109,21 +109,39 @@ def download_objekts(group: str, objekt_list:dict, member_S_number: dict) -> Non
     cnt = 0
     for objekt in objekt_list:
         member = objekt["member"]
+        slug = objekt ["slug"]
+        timestamp = (utime_timestamp(objekt['createdAt']))
+
         try:
-            path = f'./{group}/{member_S_number[member]}-{member}/{objekt['slug']}.png'
+            base_path = f'./{group}/{member_S_number[member]}-{member}'
         except KeyError:
-            path = f'./{group}/{member}/{objekt['slug']}.png'
-        
-        response = requests.get(objekt['frontImage'])
-        if response.status_code == 200:
-            with open(path, "wb") as f:
-                f.write(response.content)
-                os.utime(path, (utime_timestamp(objekt['createdAt'])))
+            base_path = f'./{group}/{member}'
+
+        # image handling #
+        img_path = f"{base_path}/{slug}.png"
+        if download_file(objekt['frontImage'], img_path, slug, timestamp):
             cnt += 1
             if cnt%10 == 0:
                 print(f"{cnt} images downloaded")
-        else:
-            print(f"Failed to fetch {objekt['slug']}. Error {response.status_code}")
+        
+        # MCOs handling #
+        if objekt["class"] == 'Motion':
+            video_url = f"https://cdn.apollo.cafe/mco/{slug}.mp4"
+            video_path = f"{base_path}/{slug}.mp4"
+            download_file(video_url, video_path, slug, timestamp)
+            print("MCO video downloaded")
+
+def download_file(url: str, path: str, slug: str, timestamp:tuple[float]|None = None) -> bool:
+    response = requests.get(url)
+    if response.status_code != 200:
+        print(f"Error {response.status_code}. Failed to fetch {slug} at {url}")
+        return False
+    
+    with open(path, "wb") as f:
+        f.write(response.content)
+    if timestamp is not None:
+        os.utime(path, timestamp)
+    return True
 
 def new_batch_prompt() -> None:
     reply = input("Download a new batch? (yes/no)\n")
@@ -135,7 +153,7 @@ def new_batch_prompt() -> None:
     else:
         new_batch_prompt()
 
-def utime_timestamp(timestamp : str) -> float:
+def utime_timestamp(timestamp : str) -> tuple[float]:
     """Convert an ISO timestamp to a UNIX timstamp"""
     dt = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
     posixts = dt.timestamp()
