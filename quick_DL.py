@@ -55,6 +55,7 @@ def fetch_objekt_data(group: str, timestamp:str) -> list:
         createdAt
         member
         class
+        season
         }}
     }}
     '''
@@ -77,18 +78,32 @@ def fetch_objekt_data(group: str, timestamp:str) -> list:
                 exit()
     return objekts
 
-def create_sort_folders(members_list: list, group: str, member_S_number: dict) -> None:
-    for member in members_list:
-        try:
-            path = f'./{group}/{member_S_number[member]}-{member}'
-        except KeyError:
-            if group == "triples":
-                print(f"""
-                      Can't find {member} S number. Ignoring S number for folder creation.\n
-                      Ignore this message if it's a special objekt not tied to a member's name (i.e "S24" or "Icarus")
-                      """)
-            path = f'./{group}/{member}'
-        os.makedirs(path, exist_ok=True)
+def extract_unique_attributes(data: list[dict]) -> tuple[list] :
+    members = set()
+    seasons = set()
+
+    for entry in data:
+        members.add(entry["member"])
+        seasons.add(entry["season"])
+    
+    members_list = list(members)
+    seasons_list = list(seasons)
+
+    return members_list, seasons_list
+
+def create_sort_folders(unique_attribs: tuple[list], group: str, member_S_number: dict) -> None:
+    for season in unique_attribs[1]:
+        for member in unique_attribs[0]:
+            try:
+                path = f'./{group}/{season}/{member_S_number[member]}-{member}'
+            except KeyError:
+                if group in ("triples", "idntt"):
+                    print(f"""
+                        Can't find {member} S/id number. Ignoring S/id number for folder creation.\n
+                        Ignore this message if it's a special objekt not tied to a member's name (i.e "S24" or "Icarus")
+                        """)
+                path = f'./{group}/{season}/{member}'
+            os.makedirs(path, exist_ok=True)
 
 def download_objekts(group: str, objekt_list:list[dict], member_S_number: dict) -> None:
     """Downloads all objekts requested and puts them into the adapted folder
@@ -185,7 +200,15 @@ def main() -> None:
         "ChaeWon" : "S21",
         "Sullin" : "S22",
         "SeoAh" : "S23",
-        "JiYeon" : "S24"
+        "JiYeon" : "S24",
+        "DoHun" : "id1",
+        "HeeJu" : "id2",
+        "MinGyeol" : "id3",
+        "TaeIn" : "id4",
+        "JaeYoung" : "id5",
+        "JuHo" : "id6",
+        "JiWoon" : "id7",
+        "HwanHee" : "id8",
     }
     
     # Ensures correct typo
@@ -206,8 +229,8 @@ def main() -> None:
         new_batch_prompt()
     
     # Creates folders to sort per member
-    members_list = list({item["member"] for item in data})
-    create_sort_folders(members_list, group, member_S_number)
+    unique_attribs = extract_unique_attributes(data)
+    create_sort_folders(unique_attribs, group, member_S_number)
 
     # General informations
     print("Old timestamp : ", timestamp)
