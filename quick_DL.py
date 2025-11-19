@@ -29,8 +29,8 @@ def parse_group_name() -> str:
         group_out = parse_group_name()
     return group_out
 
-def fetch_objekt_data(group: str, timestamp:str) -> list:
-    """Requests Pulsar's API all new Objekts since the last run
+def fetch_objekt_data(group: str, timestamp:str) -> list[dict]:
+    """Requests Pulsar's API for all new Objekts since the last run
 
     Parameters
     ----------
@@ -42,7 +42,7 @@ def fetch_objekt_data(group: str, timestamp:str) -> list:
     Returns
     -------
     - objekts : json
-        json containing names, front images, and timestamps of all objekts requested
+        API response containing the new objekts
     """
 
     url = 'https://api.pulsar.azagal.eu/graphql'
@@ -79,6 +79,21 @@ def fetch_objekt_data(group: str, timestamp:str) -> list:
     return objekts
 
 def extract_unique_attributes(data: list[dict]) -> tuple[list] :
+    """
+    Extracts the members and seasons contained in data
+
+    Parameters
+    ----------
+    data : json
+        API response containing the new objekts
+    
+    Returns
+    -------
+    _ : tuple[list]
+        A tuple containing :
+        - the list containing all members, without duplicates
+        - the list containing all seasons, without duplicates
+    """
     members = set()
     seasons = set()
 
@@ -92,6 +107,18 @@ def extract_unique_attributes(data: list[dict]) -> tuple[list] :
     return members_list, seasons_list
 
 def create_sort_folders(unique_attribs: tuple[list], group: str, member_S_number: dict) -> None:
+    """
+    Parameters
+    ----------
+    unique_attribs : tuple[list]
+        A tuple containing :
+        - the list containing all members, without duplicates
+        - the list containing all seasons, without duplicates
+    group : str
+        The name of the requested group
+    member_S_number : dict
+        A dict matching all S/id numbers for tripleS and idntt
+    """
     for season in unique_attribs[1]:
         for member in unique_attribs[0]:
             try:
@@ -113,9 +140,9 @@ def download_objekts(group: str, objekt_list:list[dict], member_S_number: dict) 
     group : str
         Name of the wanted group
     objekt_list : json
-        json containing all the objekts to be processed (MUST include a slug, frontImage and member field)
+        json containing all the objekts to be processed
     member_S_number: dict
-        dict matching all S numbers for tripleS
+        A dict matching all S/id numbers for tripleS and idntt
 
     Returns
     -------
@@ -147,6 +174,18 @@ def download_objekts(group: str, objekt_list:list[dict], member_S_number: dict) 
             print("MCO video downloaded")
 
 def download_file(url: str, path: str, slug: str, timestamp:tuple[float]|None = None) -> bool:
+    """
+    Parameters
+    ----------
+    url : str
+        Url to objekt content
+    path : str
+        Path to save to
+    slug : str
+        Name of the objekt
+    timestamp : tuple[float]
+        Creation date of the objekt
+    """
     response = requests.get(url)
     if response.status_code != 200:
         print(f"Error {response.status_code}. Failed to fetch {slug} at {url}")
