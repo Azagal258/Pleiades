@@ -4,15 +4,16 @@ import json
 import requests
 import os
 from datetime import datetime, timezone
+import dotenv
 
 ### Function land ###
 
-def ensure_file_exists(file_path: str):
-    """Create the timestamp files to avoid querying the entire DB each time"""
-    if not os.path.exists(file_path):
-        with open(file_path, 'w') as f:
-            f.write('1970-01-01T00:00:00.000Z')
-        print(f"File '{file_path}' created.")
+def ensure_timestamp(env_path: str, group: str):
+    """Verfies that the .env holds the group's timestamp. If not,\\
+    generates a default value"""
+    if dotenv.get_key(env_path, f"{group}") == None:
+        print("Generating default timestamp")
+        dotenv.set_key(env_path, f"{group}", '1970-01-01T00:00:00.000Z')
 
 def parse_group_name() -> str:
     """Ensures that the correct formatting for processing"""
@@ -249,17 +250,18 @@ def main() -> None:
         "JiWoon" : "id7",
         "HwanHee" : "id8",
     }
-    
+
+    env_path = ".env"
+
     # Ensures correct typo
     group = parse_group_name()
     
     # Create env
-    os.makedirs(f'./{group}', exist_ok=True)
-    ensure_file_exists(f'timestamp-{group}.txt')
+    ensure_timestamp(env_path, group)
 
     # Checks last most recent objekt's timestamp
-    with open(f"timestamp-{group}.txt", "r") as f:
-        timestamp = f.read()
+    timestamp = dotenv.get_key(".env", group)
+    print("Old timestamp : ", timestamp)
 
     # gets JSON data from API
     data = fetch_objekt_data(group, timestamp)
@@ -272,7 +274,6 @@ def main() -> None:
     create_sort_folders(unique_attribs, group, member_S_number)
 
     # General informations
-    print("Old timestamp : ", timestamp)
     time = max([entry["createdAt"] for entry in data])
     print("New timestamp : ", time)
     print("# of objekts : " , len(data))
@@ -281,8 +282,7 @@ def main() -> None:
     print("Download finished")
 
     # Saves new most recent objekt's timestamp
-    with open(f"timestamp-{group}.txt", "w") as f:
-        f.write(time)
+    dotenv.set_key(env_path, group, time)
 
     new_batch_prompt()
 
