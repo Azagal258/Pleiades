@@ -18,17 +18,16 @@ def ensure_timestamp(env_path: str, group: str):
 def parse_group_name() -> str:
     """Ensures that the correct formatting for processing"""
 
-    group = input("Which group's Objetks do you want to download?\n")
-    if group.lower() in ["3s", "3 s", "triples", "triple s"]:
-        group_out = "triples"
-    elif group.lower() == "artms":
-        group_out = "artms"
-    elif group.lower() == "idntt":
-        group_out = "idntt"
-    else:
-        print("Group unknown, verify for any typo.")
-        group_out = parse_group_name()
-    return group_out
+    while True:
+        group = input("Which group's Objetks do you want to download?\n")
+        if group.lower() in ["3s", "3 s", "triples", "triple s"]:
+            return "triples"
+        elif group.lower() == "artms":
+            return "artms"
+        elif group.lower() == "idntt":
+            return "idntt"
+        else:
+            print("Group unknown, verify for any typo.")
 
 def fetch_objekt_data(group: str, timestamp:str) -> list[dict]:
     """Requests Pulsar's API for all new Objekts since the last run
