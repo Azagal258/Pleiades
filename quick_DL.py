@@ -8,12 +8,29 @@ import dotenv
 
 ### Function land ###
 
-def ensure_timestamp(env_path: str, group: str):
+def ensure_timestamp(env_path: str, group: str) -> str:
     """Verfies that the .env holds the group's timestamp. If not,\\
-    generates a default value"""
-    if dotenv.get_key(env_path, f"{group}") == None:
+    generates a default value, then returns the timestamp.
+
+    Parameters
+    ----------
+    env_path : str
+        the local folder .env path
+    group : str
+        the formatted group name
+
+    Returns
+    -------
+    timestamp : str
+        the latest creation date of fetched objekts, \\
+        defaults at epoch 0 on the first run
+    """
+    timestamp = dotenv.get_key(env_path, f"{group}")
+    if timestamp == None:
         print("Generating default timestamp")
         dotenv.set_key(env_path, f"{group}", '1970-01-01T00:00:00.000Z')
+        timestamp = '1970-01-01T00:00:00.000Z'
+    return timestamp
 
 def parse_group_name() -> str:
     """Ensures that the correct formatting for processing"""
@@ -255,11 +272,8 @@ def main() -> None:
     # Ensures correct typo
     group = parse_group_name()
     
-    # Create env
-    ensure_timestamp(env_path, group)
-
     # Checks last most recent objekt's timestamp
-    timestamp = dotenv.get_key(".env", group)
+    timestamp = ensure_timestamp(env_path, group)
     print("Old timestamp : ", timestamp)
 
     # gets JSON data from API
