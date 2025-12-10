@@ -95,7 +95,7 @@ def fetch_objekt_data(group: str, timestamp:str) -> list[dict]:
                 exit()
     return objekts
 
-def extract_unique_attributes(data: list[dict]) -> tuple[list] :
+def extract_unique_attributes(data: list[dict]) -> tuple[list, list] :
     """
     Extracts the members and seasons contained in data
 
@@ -123,7 +123,7 @@ def extract_unique_attributes(data: list[dict]) -> tuple[list] :
 
     return members_list, seasons_list
 
-def create_sort_folders(unique_attribs: tuple[list], group: str, member_S_number: dict) -> None:
+def create_sort_folders(unique_attribs: tuple[list, list], group: str, member_S_number: dict) -> None:
     """
     Parameters
     ----------
@@ -190,7 +190,7 @@ def download_objekts(group: str, objekt_list:list[dict], member_S_number: dict) 
             download_file(video_url, video_path, slug, timestamp)
             print("MCO video downloaded")
 
-def download_file(url: str, path: str, slug: str, timestamp:tuple[float]|None = None) -> bool:
+def download_file(url: str, path: str, slug: str, timestamp:tuple[float, float]|None = None) -> bool:
     """
     Parameters
     ----------
@@ -224,7 +224,7 @@ def new_batch_prompt() -> None:
     else:
         new_batch_prompt()
 
-def utime_timestamp(timestamp : str) -> tuple[float]:
+def utime_timestamp(timestamp : str) -> tuple[float, float]:
     """Convert an ISO timestamp to a UNIX timstamp"""
     dt = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
     posixts = dt.timestamp()
