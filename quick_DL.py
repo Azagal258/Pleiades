@@ -3,7 +3,7 @@
 import json
 import requests
 import os
-from datetime import datetime, timezone
+from datetime import datetime
 import dotenv
 
 ### Function land ###
@@ -46,7 +46,7 @@ def parse_group_name() -> str:
         else:
             print("Group unknown, verify for any typo.")
 
-def fetch_objekt_data(group: str, timestamp:str) -> list[dict]:
+def fetch_objekt_data(group: str, timestamp:str) -> list[dict[str,str]]:
     """Requests Pulsar's API for all new Objekts since the last run
 
     Parameters
@@ -81,6 +81,7 @@ def fetch_objekt_data(group: str, timestamp:str) -> list[dict]:
         'Content-Type': 'application/json'
     }
     data = {'query': query}
+    objekts: list[dict[str,str]] = []
 
     response = requests.post(url, headers=headers, data=json.dumps(data))
 
@@ -89,13 +90,12 @@ def fetch_objekt_data(group: str, timestamp:str) -> list[dict]:
             objekts = response.json()['data']['collections']
         except Exception as e:
             print(e)
-            if input("Error while fetching objekt data, do you still want to proceed?").lower() in ["y", "ye", "yes"]:
-                objekts = []
-            else:
+            if input("Error while fetching objekt data, do you still want to proceed? \\ Program is likely to crash").lower() in ["n", "no"]:
                 exit()
+
     return objekts
 
-def extract_unique_attributes(data: list[dict]) -> tuple[list, list] :
+def extract_unique_attributes(data: list[dict[str, str]]) -> tuple[list[str], list[str]] :
     """
     Extracts the members and seasons contained in data
 
@@ -111,8 +111,8 @@ def extract_unique_attributes(data: list[dict]) -> tuple[list, list] :
         - the list containing all members, without duplicates
         - the list containing all seasons, without duplicates
     """
-    members = set()
-    seasons = set()
+    members: set[str] = set()
+    seasons: set[str] = set()
 
     for entry in data:
         members.add(entry["member"])
@@ -123,7 +123,7 @@ def extract_unique_attributes(data: list[dict]) -> tuple[list, list] :
 
     return members_list, seasons_list
 
-def create_sort_folders(unique_attribs: tuple[list, list], group: str, member_S_number: dict) -> None:
+def create_sort_folders(unique_attribs: tuple[list[str], list[str]], group: str, member_S_number: dict[str,str]) -> None:
     """
     Parameters
     ----------
@@ -149,7 +149,7 @@ def create_sort_folders(unique_attribs: tuple[list, list], group: str, member_S_
                 path = f'./{group}/{season}/{member}'
             os.makedirs(path, exist_ok=True)
 
-def download_objekts(group: str, objekt_list:list[dict], member_S_number: dict) -> None:
+def download_objekts(group: str, objekt_list:list[dict[str,str]], member_S_number: dict[str,str]) -> None:
     """Downloads all objekts requested and puts them into the adapted folder
 
     Parameters
