@@ -27,7 +27,7 @@ def ensure_timestamp(env_path: str, group: str) -> str:
     """
     timestamp = dotenv.get_key(env_path, f"{group}")
     if timestamp == None:
-        print("Generating default timestamp")
+        print("[INFO] Generating default timestamp")
         dotenv.set_key(env_path, f"{group}", '1970-01-01T00:00:00.000Z')
         timestamp = '1970-01-01T00:00:00.000Z'
     return timestamp
@@ -44,7 +44,7 @@ def parse_group_name() -> str:
         elif group.lower() == "idntt":
             return "idntt"
         else:
-            print("Group unknown, verify for any typo.")
+            print("[WARN] Group unknown, verify for any typo.")
 
 def fetch_objekt_data(group: str, timestamp:str) -> list[dict[str,str]]:
     """Requests Pulsar's API for all new Objekts since the last run
@@ -89,9 +89,9 @@ def fetch_objekt_data(group: str, timestamp:str) -> list[dict[str,str]]:
         try:
             objekts = response.json()['data']['collections']
         except Exception as e:
-            print(e)
-            if input("Error while fetching objekt data, do you still want to proceed? \\ Program is likely to crash").lower() in ["n", "no"]:
-                exit()
+            print(f"[WARN] Couldn't fetch objekt data : {e}")
+    else:
+        print(f"[ERROR] Couldn't reach the API : Code {response.status_code}")
 
     return objekts
 
@@ -123,7 +123,7 @@ def extract_unique_attributes(data: list[dict[str, str]]) -> tuple[list[str], li
 
     return members_list, seasons_list
 
-def create_sort_folders(unique_attribs: tuple[list[str], list[str]], group: str, member_S_number: dict[str,str]) -> None:
+def create_sort_folders(unique_attribs: tuple[list[str], list[str]], group: str, member_S_number: dict[str,str], env_path: str) -> None:
     """
     Parameters
     ----------
@@ -135,21 +135,20 @@ def create_sort_folders(unique_attribs: tuple[list[str], list[str]], group: str,
         The name of the requested group
     member_S_number : dict
         A dict matching all S/id numbers for tripleS and idntt
+    env_path : str
+        Path to the .env
     """
     for season in unique_attribs[1]:
         for member in unique_attribs[0]:
             try:
-                path = f'./{group}/{season}/{member_S_number[member]}-{member}'
+                path = f'{get_path_base(env_path)}/{group}/{season}/{member_S_number[member]}-{member}'
             except KeyError:
                 if group in ("triples", "idntt"):
-                    print(f"""
-                        Can't find {member} S/id number. Ignoring S/id number for folder creation.\n
-                        Ignore this message if it's a special objekt not tied to a member's name (i.e "S24" or "Icarus")
-                        """)
-                path = f'./{group}/{season}/{member}'
+                    print(f"[INFO] Can't find {member} S/id number. Ignoring S/id number for folder creation. Ignore this message if it's a special objekt not tied to a member's name (i.e 'S24' or 'Icarus')")
+                path = f'{get_path_base(env_path)}/{group}/{season}/{member}'
             os.makedirs(path, exist_ok=True)
 
-def download_objekts(group: str, objekt_list:list[dict[str,str]], member_S_number: dict[str,str]) -> None:
+def download_objekts(group: str, objekt_list:list[dict[str,str]], member_S_number: dict[str,str], env_path: str) -> None:
     """Downloads all objekts requested and puts them into the adapted folder
 
     Parameters
@@ -158,8 +157,10 @@ def download_objekts(group: str, objekt_list:list[dict[str,str]], member_S_numbe
         Name of the wanted group
     objekt_list : json
         json containing all the objekts to be processed
-    member_S_number: dict
+    member_S_number : dict
         A dict matching all S/id numbers for tripleS and idntt
+    env_path : str
+        Path to the .env
 
     Returns
     -------
@@ -172,23 +173,23 @@ def download_objekts(group: str, objekt_list:list[dict[str,str]], member_S_numbe
         timestamp = (utime_timestamp(objekt['createdAt']))
 
         try:
-            base_path = f'./{group}/{member_S_number[member]}-{member}'
+            base_path = f'{get_path_base(env_path)}/{group}/{member_S_number[member]}-{member}'
         except KeyError:
-            base_path = f'./{group}/{member}'
+            base_path = f'{get_path_base(env_path)}/{group}/{member}'
 
         # image handling #
         img_path = f"{base_path}/{slug}.png"
         if download_file(objekt['frontImage'], img_path, slug, timestamp):
             cnt += 1
             if cnt%10 == 0:
-                print(f"{cnt} images downloaded")
+                print(f"[INFO] {cnt} images downloaded")
         
         # MCOs handling #
         if objekt["class"] == 'Motion':
             video_url = f"https://cdn.apollo.cafe/mco/{slug}.mp4"
             video_path = f"{base_path}/{slug}.mp4"
-            download_file(video_url, video_path, slug, timestamp)
-            print("MCO video downloaded")
+            if download_file(video_url, video_path, slug, timestamp):
+                print("[INFO] MCO video downloaded")
 
 def download_file(url: str, path: str, slug: str, timestamp:tuple[float, float]|None = None) -> bool:
     """
@@ -205,7 +206,7 @@ def download_file(url: str, path: str, slug: str, timestamp:tuple[float, float]|
     """
     response = requests.get(url)
     if response.status_code != 200:
-        print(f"Error {response.status_code}. Failed to fetch {slug} at {url}")
+        print(f"[ERROR] Failed to fetch {slug} at {url} : Code {response.status_code}")
         return False
     
     with open(path, "wb") as f:
@@ -219,7 +220,7 @@ def new_batch_prompt() -> None:
     if reply.lower() in ["yes","y"]:
         main()
     elif reply.lower() in ["no","n"]:
-        print("Shutting down...")
+        print("[INFO] Shutting down...")
         exit()
     else:
         new_batch_prompt()
@@ -230,6 +231,13 @@ def utime_timestamp(timestamp : str) -> tuple[float, float]:
     posixts = dt.timestamp()
     utimets = (posixts, posixts)
     return utimets
+
+def get_path_base(env_path: str) -> str:
+    path_base = dotenv.get_key(env_path, "save_path")
+    if path_base == None:
+        print(f"[WARN] No 'save_path' in .env ; defaulting to cwd : {os.getcwd}")
+        path_base = "."
+    return path_base
 
 def main() -> None:
     member_S_number = {
@@ -274,25 +282,25 @@ def main() -> None:
     
     # Checks last most recent objekt's timestamp
     timestamp = ensure_timestamp(env_path, group)
-    print("Old timestamp : ", timestamp)
+    print("[INFO] Old timestamp : ", timestamp)
 
     # gets JSON data from API
     data = fetch_objekt_data(group, timestamp)
     if data == []:
-        print("No new Objekts to download, try again later.")
+        print("[INFO] No new Objekts to download, try again later.")
         new_batch_prompt()
     
     # Creates folders to sort per member
     unique_attribs = extract_unique_attributes(data)
-    create_sort_folders(unique_attribs, group, member_S_number)
+    create_sort_folders(unique_attribs, group, member_S_number, env_path)
 
     # General informations
     time = max([entry["createdAt"] for entry in data])
-    print("New timestamp : ", time)
-    print("# of objekts : " , len(data))
+    print("[INFO] New timestamp : ", time)
+    print("[INFO] # of objekts : " , len(data))
 
-    download_objekts(group, data, member_S_number)
-    print("Download finished")
+    download_objekts(group, data, member_S_number, env_path)
+    print("[INFO] Download finished")
 
     # Saves new most recent objekt's timestamp
     dotenv.set_key(env_path, group, time)
