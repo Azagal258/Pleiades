@@ -89,9 +89,9 @@ def fetch_objekt_data(group: str, timestamp:str) -> list[dict[str,str]]:
         try:
             objekts = response.json()['data']['collections']
         except Exception as e:
-            print(e)
-            if input("Error while fetching objekt data, do you still want to proceed? \\ Program is likely to crash").lower() in ["n", "no"]:
-                exit()
+            print(f"ERROR: Couldn't fetch objekt data : {e}")
+    else:
+        print(f"ERROR: Couldn't reach the API : Code {response.status_code}")
 
     return objekts
 
@@ -123,7 +123,7 @@ def extract_unique_attributes(data: list[dict[str, str]]) -> tuple[list[str], li
 
     return members_list, seasons_list
 
-def create_sort_folders(unique_attribs: tuple[list[str], list[str]], group: str, member_S_number: dict[str,str]) -> None:
+def create_sort_folders(unique_attribs: tuple[list[str], list[str]], group: str, member_S_number: dict[str,str], env_path: str) -> None:
     """
     Parameters
     ----------
@@ -135,21 +135,20 @@ def create_sort_folders(unique_attribs: tuple[list[str], list[str]], group: str,
         The name of the requested group
     member_S_number : dict
         A dict matching all S/id numbers for tripleS and idntt
+    env_path : str
+        Path to the .env
     """
     for season in unique_attribs[1]:
         for member in unique_attribs[0]:
             try:
-                path = f'./{group}/{season}/{member_S_number[member]}-{member}'
+                path = f'{get_path_base(env_path)}/{group}/{season}/{member_S_number[member]}-{member}'
             except KeyError:
                 if group in ("triples", "idntt"):
-                    print(f"""
-                        Can't find {member} S/id number. Ignoring S/id number for folder creation.\n
-                        Ignore this message if it's a special objekt not tied to a member's name (i.e "S24" or "Icarus")
-                        """)
-                path = f'./{group}/{season}/{member}'
+                    print(f"INFO : Can't find {member} S/id number. Ignoring S/id number for folder creation. Ignore this message if it's a special objekt not tied to a member's name (i.e 'S24' or 'Icarus')")
+                path = f'{get_path_base(env_path)}/{group}/{season}/{member}'
             os.makedirs(path, exist_ok=True)
 
-def download_objekts(group: str, objekt_list:list[dict[str,str]], member_S_number: dict[str,str]) -> None:
+def download_objekts(group: str, objekt_list:list[dict[str,str]], member_S_number: dict[str,str], env_path: str) -> None:
     """Downloads all objekts requested and puts them into the adapted folder
 
     Parameters
@@ -158,8 +157,10 @@ def download_objekts(group: str, objekt_list:list[dict[str,str]], member_S_numbe
         Name of the wanted group
     objekt_list : json
         json containing all the objekts to be processed
-    member_S_number: dict
+    member_S_number : dict
         A dict matching all S/id numbers for tripleS and idntt
+    env_path : str
+        Path to the .env
 
     Returns
     -------
@@ -172,9 +173,9 @@ def download_objekts(group: str, objekt_list:list[dict[str,str]], member_S_numbe
         timestamp = (utime_timestamp(objekt['createdAt']))
 
         try:
-            base_path = f'./{group}/{member_S_number[member]}-{member}'
+            base_path = f'{get_path_base(env_path)}/{group}/{member_S_number[member]}-{member}'
         except KeyError:
-            base_path = f'./{group}/{member}'
+            base_path = f'{get_path_base(env_path)}/{group}/{member}'
 
         # image handling #
         img_path = f"{base_path}/{slug}.png"
@@ -187,8 +188,8 @@ def download_objekts(group: str, objekt_list:list[dict[str,str]], member_S_numbe
         if objekt["class"] == 'Motion':
             video_url = f"https://cdn.apollo.cafe/mco/{slug}.mp4"
             video_path = f"{base_path}/{slug}.mp4"
-            download_file(video_url, video_path, slug, timestamp)
-            print("MCO video downloaded")
+            if download_file(video_url, video_path, slug, timestamp):
+                print("MCO video downloaded")
 
 def download_file(url: str, path: str, slug: str, timestamp:tuple[float, float]|None = None) -> bool:
     """
@@ -230,6 +231,13 @@ def utime_timestamp(timestamp : str) -> tuple[float, float]:
     posixts = dt.timestamp()
     utimets = (posixts, posixts)
     return utimets
+
+def get_path_base(env_path: str) -> str:
+    path_base = dotenv.get_key(env_path, "save_path")
+    if path_base == None:
+        print(f"[INFO] No 'save_path' in .env ; defaulting to cwd : {os.getcwd}")
+        path_base = "."
+    return path_base
 
 def main() -> None:
     member_S_number = {
@@ -284,14 +292,14 @@ def main() -> None:
     
     # Creates folders to sort per member
     unique_attribs = extract_unique_attributes(data)
-    create_sort_folders(unique_attribs, group, member_S_number)
+    create_sort_folders(unique_attribs, group, member_S_number, env_path)
 
     # General informations
     time = max([entry["createdAt"] for entry in data])
     print("New timestamp : ", time)
     print("# of objekts : " , len(data))
 
-    download_objekts(group, data, member_S_number)
+    download_objekts(group, data, member_S_number, env_path)
     print("Download finished")
 
     # Saves new most recent objekt's timestamp
