@@ -169,13 +169,14 @@ def download_objekts(group: str, objekt_list:list[dict[str,str]], member_S_numbe
     cnt = 0
     for objekt in objekt_list:
         member = objekt["member"]
+        season = objekt["season"]
         slug = objekt ["slug"]
         timestamp = (utime_timestamp(objekt['createdAt']))
 
         try:
-            base_path = f'{get_path_base(env_path)}/{group}/{member_S_number[member]}-{member}'
+            base_path = f'{get_path_base(env_path)}/{group}/{season}/{member_S_number[member]}-{member}'
         except KeyError:
-            base_path = f'{get_path_base(env_path)}/{group}/{member}'
+            base_path = f'{get_path_base(env_path)}/{group}/{season}/{member}'
 
         # image handling #
         img_path = f"{base_path}/{slug}.png"
