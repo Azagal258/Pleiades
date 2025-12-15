@@ -119,7 +119,7 @@ def extract_unique_attributes(data: list[dict[str, str]]) -> list[tuple[str, str
 
     return unique_list
 
-def create_sort_folders(unique_attribs: list[tuple[str, str]], group: str, member_S_number: dict[str,str], env_path: str) -> None:
+def create_sort_folders(unique_attribs: list[tuple[str, str]], group: str, member_S_number: dict[str,str], base_dir_path: str) -> None:
     """
     Parameters
     ----------
@@ -130,21 +130,21 @@ def create_sort_folders(unique_attribs: list[tuple[str, str]], group: str, membe
         The name of the requested group
     member_S_number : dict
         A dict matching all S/id numbers for tripleS and idntt
-    env_path : str
-        Path to the .env
+    base_dir_path : str
+        Path to the base directory of the archive
     """
     for entry in unique_attribs:
             member = entry[0]
             season = entry[1]
             try:
-                path = f'{get_path_base(env_path)}/{group}/{season}/{member_S_number[member]}-{member}'
+                path = f'{base_dir_path}/{group}/{season}/{member_S_number[member]}-{member}'
             except KeyError:
                 if group in ("triples", "idntt"):
                     print(f"[INFO] Can't find {member} S/id number. Ignoring S/id number for folder creation. Ignore this message if it's a special objekt not tied to a member's name (i.e 'S24' or 'Icarus')")
-                path = f'{get_path_base(env_path)}/{group}/{season}/{member}'
+                path = f'{base_dir_path}/{group}/{season}/{member}'
             os.makedirs(path, exist_ok=True)
 
-def download_objekts(group: str, objekt_list:list[dict[str,str]], member_S_number: dict[str,str], env_path: str) -> None:
+def download_objekts(group: str, objekt_list:list[dict[str,str]], member_S_number: dict[str,str], base_dir_path: str) -> None:
     """Downloads all objekts requested and puts them into the adapted folder
 
     Parameters
@@ -155,8 +155,8 @@ def download_objekts(group: str, objekt_list:list[dict[str,str]], member_S_numbe
         json containing all the objekts to be processed
     member_S_number : dict
         A dict matching all S/id numbers for tripleS and idntt
-    env_path : str
-        Path to the .env
+    base_dir_path : str
+        Path to the base directory of the archive
 
     Returns
     -------
@@ -170,9 +170,9 @@ def download_objekts(group: str, objekt_list:list[dict[str,str]], member_S_numbe
         timestamp = (utime_timestamp(objekt['createdAt']))
 
         try:
-            base_path = f'{get_path_base(env_path)}/{group}/{season}/{member_S_number[member]}-{member}'
+            base_path = f'{base_dir_path}/{group}/{season}/{member_S_number[member]}-{member}'
         except KeyError:
-            base_path = f'{get_path_base(env_path)}/{group}/{season}/{member}'
+            base_path = f'{base_dir_path}/{group}/{season}/{member}'
 
         # image handling #
         img_path = f"{base_path}/{slug}.png"
@@ -229,12 +229,12 @@ def utime_timestamp(timestamp : str) -> tuple[float, float]:
     utimets = (posixts, posixts)
     return utimets
 
-def get_path_base(env_path: str) -> str:
-    path_base = dotenv.get_key(env_path, "save_path")
-    if path_base == None:
-        print(f"[WARN] No 'save_path' in .env ; defaulting to cwd : {os.getcwd}")
-        path_base = "."
-    return path_base
+def get_base_dir_path(env_path: str) -> str:
+    base_dir_path = dotenv.get_key(env_path, "save_path")
+    if base_dir_path == None:
+        print(f"[WARN] No 'save_path' in .env ; defaulting to cwd : {os.getcwd()}")
+        base_dir_path = "."
+    return base_dir_path
 
 def main() -> None:
     member_S_number = {
@@ -289,14 +289,15 @@ def main() -> None:
     
     # Creates folders to sort per member
     unique_attribs = extract_unique_attributes(data)
-    create_sort_folders(unique_attribs, group, member_S_number, env_path)
+    base_dir_path = get_base_dir_path(env_path)
+    create_sort_folders(unique_attribs, group, member_S_number, base_dir_path)
 
     # General informations
     time = max([entry["createdAt"] for entry in data])
     print("[INFO] New timestamp : ", time)
     print("[INFO] # of objekts : " , len(data))
 
-    download_objekts(group, data, member_S_number, env_path)
+    download_objekts(group, data, member_S_number, base_dir_path)
     print("[INFO] Download finished")
 
     # Saves new most recent objekt's timestamp
