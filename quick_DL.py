@@ -95,7 +95,7 @@ def fetch_objekt_data(group: str, timestamp:str) -> list[dict[str,str]]:
 
     return objekts
 
-def extract_unique_attributes(data: list[dict[str, str]]) -> tuple[list[str], list[str]] :
+def extract_unique_attributes(data: list[dict[str, str]]) -> list[tuple[str, str]] :
     """
     Extracts the members and seasons contained in data
 
@@ -106,31 +106,26 @@ def extract_unique_attributes(data: list[dict[str, str]]) -> tuple[list[str], li
     
     Returns
     -------
-    _ : tuple[list]
-        A tuple containing :
-        - the list containing all members, without duplicates
-        - the list containing all seasons, without duplicates
+    unique_list : list[tuple]
+        A list of members paired to the season(s) they feature in\\
+        Index 0 is the member, index 1 is the season
     """
-    members: set[str] = set()
-    seasons: set[str] = set()
+    unique: set[tuple[str, str]] = set()
 
     for entry in data:
-        members.add(entry["member"])
-        seasons.add(entry["season"])
+        unique.add((entry["member"], entry["season"]))
     
-    members_list = list(members)
-    seasons_list = list(seasons)
+    unique_list = list(unique)
 
-    return members_list, seasons_list
+    return unique_list
 
-def create_sort_folders(unique_attribs: tuple[list[str], list[str]], group: str, member_S_number: dict[str,str], env_path: str) -> None:
+def create_sort_folders(unique_attribs: list[tuple[str, str]], group: str, member_S_number: dict[str,str], env_path: str) -> None:
     """
     Parameters
     ----------
-    unique_attribs : tuple[list]
-        A tuple containing :
-        - the list containing all members, without duplicates
-        - the list containing all seasons, without duplicates
+    unique_attribs : list[tuple]
+        A list of members paired to the season(s) they feature in\\
+        Index 0 is the member, index 1 is the season 
     group : str
         The name of the requested group
     member_S_number : dict
@@ -138,8 +133,9 @@ def create_sort_folders(unique_attribs: tuple[list[str], list[str]], group: str,
     env_path : str
         Path to the .env
     """
-    for season in unique_attribs[1]:
-        for member in unique_attribs[0]:
+    for entry in unique_attribs:
+            member = entry[0]
+            season = entry[1]
             try:
                 path = f'{get_path_base(env_path)}/{group}/{season}/{member_S_number[member]}-{member}'
             except KeyError:
