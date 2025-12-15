@@ -1,33 +1,34 @@
 # Pleiades
 Pleiades is a CLI tool to download and sort Objekts. \
-Objetks are a digital photocard system used by the Kpop agency Modhaus.
+Objekts are a digital photocard system used by the Kpop agency Modhaus.
 
 ## What does this do?
 
 This repository provides a simple python script allowing to :
-- Download objekts (with the API used by [Pulsar](https://pulsar.azagal.eu))
-- Sort objekts into folders for ease of access
+- Download objekts using the same API as [Pulsar](https://pulsar.azagal.eu) (an API I own and maintain).
+- Sort objekts into folders, based on season then member.
 
 Additionally a bash shell script allows to :
-- Select all objekts from a date onward
-- Compress them into a zip file for ease of sharing
+- Select all downloaded objekts from a date onward
+- Compress them into a zip file for easier sharing
 
 ## Requirements
 
 For the downloader
 - Python 3.6+
-- Python's `dotenv` module
+- `python-dotenv` module
+- `requests` module
 
 For the shell script
-- WSL or a system using bash
+- Any system with bash (Linux, WSL, etc...)
 
 ## Installation
 
 ```bash
-python3 --version
 git clone https://github.com/Azagal258/Pleiades.git
 cd Pleiades/
-pip install dotenv
+pip install -r requirements.txt
+cp .env.example .env
 ```
 ## How to use
 
@@ -39,6 +40,17 @@ Shell script (packager) [works only on systems with a bash shell] :
 chmod +x makezip.sh
 ./makezip.sh
 ```
+
+## Configuration
+
+.env contains by default :
+- `save_path` : base directory where Objekts will be downloaded.
+
+After the first complete run, it'll include automatically :
+- `artms`, `triples` and `idntt` : the latest run timestamps for each group.
+
+You can edit `save_path` so it points where you want your archive to reside.
+The timestamps are used to prevent duplicates and ensure no Objekts are missed. I'd recommend to not edit them manually
 
 ## License
 Copyright © 2024-2025 Azagal258
