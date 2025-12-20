@@ -174,16 +174,16 @@ def download_objekts(group: str, objekt_list:list[dict[str,str]], member_S_numbe
         except KeyError:
             base_path = f'{base_dir_path}/{group}/{season}/{member}'
 
-        # image handling #
+        # image handling
         img_path = f"{base_path}/{slug}.png"
         if download_file(objekt['frontImage'], img_path, slug, timestamp):
             cnt += 1
             if cnt%10 == 0:
                 print(f"[INFO] {cnt} images downloaded")
         
-        # MCOs handling #
+        # MCOs handling
         if objekt["class"] == 'Motion':
-            video_url = f"https://cdn.apollo.cafe/mco/{slug}.mp4"
+            video_url = f"https://cdn.apollo.cafe/mco/{group}/{slug}.mp4"
             video_path = f"{base_path}/{slug}.mp4"
             if download_file(video_url, video_path, slug, timestamp):
                 print("[INFO] MCO video downloaded")
