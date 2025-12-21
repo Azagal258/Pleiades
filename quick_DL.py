@@ -230,6 +230,18 @@ def utime_timestamp(timestamp : str) -> tuple[float, float]:
     return utimets
 
 def get_base_dir_path(env_path: str) -> str:
+    """Gets the absolute path to the directory in which all Objekts will be saved
+
+    Parameters
+    ----------
+    env_path : str
+        the local folder .env path
+    
+    Returns
+    -------
+    base_dir_path : str
+        the absolute path to the root directory from (default is cwd)
+    """
     base_dir_path = dotenv.get_key(env_path, "save_path")
     if base_dir_path == None:
         print(f"[WARN] No 'save_path' in .env ; defaulting to cwd : {os.getcwd()}")
