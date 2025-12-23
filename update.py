@@ -4,6 +4,18 @@ import dotenv
 import hashlib
 import zipfile
 from pathlib import Path
+from typing import TypedDict
+import sys
+
+class AssetData(TypedDict):
+    name: str
+    digest: str
+    browser_download_url: str
+
+class ReleaseData(TypedDict):
+    tag_name: str
+    immutable: bool
+    assets: list[AssetData]
 
 __version__ = "v.0.1.0"
 
@@ -27,26 +39,76 @@ def download_file(url: str, path: str, slug: str, timestamp:tuple[float, float]|
         os.utime(path, timestamp)
     return True
 
-def get_latest_package() -> dict:
+def get_latest_release(is_update: bool) -> ReleaseData | None :
+    """checks if there's a new release"""
 
     url = "https://api.github.com/repos/Azagal258/test-for-versioning/releases/latest"
+    token = dotenv.get_key(".env", "gh_api_token")
+
     headers = {
-        "Accept" : "application/vnd.github+json",
-        "Authorization" : f"Bearer {dotenv.get_key(".env", "gh_api_token")}"
+        "Accept": "application/vnd.github+json",
+        "Authorization": f"Bearer {token}",
     }
 
-    response = requests.get(url, headers=headers)
-    data = response.json()
+    prefix = "Update check failed: " if is_update else ""
 
-    is_immutable = data["immutable"]
-    if is_immutable:
-        latest_version = data["tag_name"]
-        for asset in data["assets"]:
-            if asset["name"] == f"package-{latest_version}.zip":
+    try:
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+    except requests.RequestException as e:
+        print(f"[ERROR] {prefix}Couldn't reach GitHub's API: {e}")
+        return None
+
+    try:
+        data:ReleaseData = response.json()
+    except Exception as e:
+        print(f"[WARN] {prefix}Couldn't fetch latest release data : {e}")
+        return None
+    
+    if is_update and "--force-update" in sys.argv:
+        return data
+    
+    latest_version = data.get("tag_name")
+    if latest_version and latest_version != __version__:
+        print(
+            f"[INFO] New version available: {__version__} -> {latest_version}\n"
+            "[INFO] Run the script with flag '--update' to update"
+        )
+    elif not latest_version:
+        print(
+            "[WARN] Couldn't determine the latest release's version"
+            "[WARN] Run with the flag --force-update to proceed without checking version" 
+            "[WARN] Use only if the update system is broken. Manually verify releases before using"
+        )
+
+    if is_update:
+        return data
+
+    return None
+
+def get_release_assets(data: ReleaseData) -> AssetData | None:
+    update_package = None
+    assets = data["assets"]
+
+    if not assets:
+        print("[ERROR] No assets found in the release")
+        return None
+
+    if "--force-update" in sys.argv:
+        for asset in assets:
+            if asset["name"].startswith("package") and asset["name"].endswith(".zip"):
                 update_package = asset
                 break
     else:
-        pass
+        latest_version = data["tag_name"]
+        for asset in assets:
+            if asset["name"] == f"package-{latest_version}.zip":
+                update_package = asset
+                break
+    
+    if not update_package:
+        print("[ERROR] No valid package found in release assets")
+        return None
     
     return update_package
 
@@ -75,18 +137,30 @@ def do_update():
             print(f"Failed to update {file} : {e}")
     os.rmdir("./update_temp/")
 
-def main():
+
+def main_update():
     dotenv.set_key(".env", "has_update_finished", "false")
-    package = get_latest_package()
     
-    DL_url = package["browser_download_url"]
-    name = package["name"]
-    DL_path = f"./{name}"
+    release_data = get_latest_release(True)
+    if release_data is None :
+        raise RuntimeError
+
+    pacakge = get_release_assets(release_data)
+    if pacakge is None :
+        raise RuntimeError
+    
+    try :
+        DL_url = pacakge["browser_download_url"]
+        name = pacakge["name"]
+        DL_path = f"./{name}"
+        pacakge_hash = pacakge["digest"]
+    except KeyError as e:
+        raise RuntimeError(f"[ERROR] Can't get essential values from asset : {e}")
 
     if download_file(DL_url, DL_path, name):
     
         hash = sha256_file(name)
-        gh_hash = package["digest"].split(":")[1]
+        gh_hash:str = pacakge_hash.split(":")[1]
 
         print(f"Calculated hash : {hash}")
         print(f"GH hash : {gh_hash}")
@@ -100,5 +174,11 @@ def main():
 
     print("Update finished, reminder to reboot")
     dotenv.set_key(".env", "has_update_finished", "true")
+
 if __name__ == "__main__":
-    main()
+    try :
+        main_update()
+    except RuntimeError:
+        print("[ERROR] Update failed")
+        input("Press Enter to quit...")
+        sys.exit()
