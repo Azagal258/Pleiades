@@ -212,15 +212,14 @@ def download_file(url: str, path: str, slug: str, timestamp:tuple[float, float]|
         os.utime(path, timestamp)
     return True
 
-def new_batch_prompt() -> None:
-    reply = input("Download a new batch? (yes/no)\n")
-    if reply.lower() in ["yes","y"]:
-        main()
-    elif reply.lower() in ["no","n"]:
-        print("[INFO] Shutting down...")
-        exit()
-    else:
-        new_batch_prompt()
+def new_batch_prompt() -> bool:
+    while True:
+        reply = input("Download a new batch? (yes/no)\n")
+        if reply.lower() in ["yes","y"]:
+            return True
+        elif reply.lower() in ["no","n"]:
+            print("[INFO] Shutting down...")
+            return False
 
 def utime_timestamp(timestamp : str) -> tuple[float, float]:
     """Convert an ISO timestamp to a UNIX timstamp"""
@@ -286,36 +285,40 @@ def main() -> None:
 
     env_path = ".env"
 
-    # Ensures correct typo
-    group = parse_group_name()
-    
-    # Checks last most recent objekt's timestamp
-    timestamp = ensure_timestamp(env_path, group)
-    print("[INFO] Old timestamp : ", timestamp)
+    while True:
+        # Ensures correct typo
+        group = parse_group_name()
+        
+        # Checks last most recent objekt's timestamp
+        timestamp = ensure_timestamp(env_path, group)
+        print("[INFO] Old timestamp : ", timestamp)
 
-    # gets JSON data from API
-    data = fetch_objekt_data(group, timestamp)
-    if data == []:
-        print("[INFO] No new Objekts to download, try again later.")
-        new_batch_prompt()
-    
-    # Creates folders to sort per member
-    unique_attribs = extract_unique_attributes(data)
-    base_dir_path = get_base_dir_path(env_path)
-    create_sort_folders(unique_attribs, group, member_S_number, base_dir_path)
+        # gets JSON data from API
+        data = fetch_objekt_data(group, timestamp)
+        if not data:
+            print("[INFO] No new Objekts to download, try again later.")
+            if not new_batch_prompt():
+                break
+            continue
+        
+        # Creates folders to sort per member
+        unique_attribs = extract_unique_attributes(data)
+        base_dir_path = get_base_dir_path(env_path)
+        create_sort_folders(unique_attribs, group, member_S_number, base_dir_path)
 
-    # General informations
-    time = max([entry["createdAt"] for entry in data])
-    print("[INFO] New timestamp : ", time)
-    print("[INFO] # of objekts : " , len(data))
+        # General informations
+        time = max([entry["createdAt"] for entry in data])
+        print("[INFO] New timestamp : ", time)
+        print("[INFO] # of objekts : " , len(data))
 
-    download_objekts(group, data, member_S_number, base_dir_path)
-    print("[INFO] Download finished")
+        download_objekts(group, data, member_S_number, base_dir_path)
+        print("[INFO] Download finished")
 
-    # Saves new most recent objekt's timestamp
-    dotenv.set_key(env_path, group, time)
+        # Saves new most recent objekt's timestamp
+        dotenv.set_key(env_path, group, time)
 
-    new_batch_prompt()
+        if not new_batch_prompt():
+            break
 
 ### Process ###
 
