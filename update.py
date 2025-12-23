@@ -17,10 +17,24 @@ class ReleaseData(TypedDict):
     immutable: bool
     assets: list[AssetData]
 
+FORCE_UPDATE = "--force-update" in sys.argv
+UPDATE = "--update" in sys.argv
+
 __version__ = "v.0.1.0"
 
 def sha256_file(path:str) -> str:
-    """Check that the file hasn't been tampered with"""
+    """Hashes a file to later check if it hasn't been tampered with
+    
+    Parameters
+    ----------
+    path : str
+        Path to the file
+
+    Returns
+    -------
+    hexdigest : str
+        sha256 hash of the file
+    """
     h = hashlib.sha256() 
     with open(path, "rb") as f: 
         for chunk in iter(lambda: f.read(8192), b""): 
@@ -28,9 +42,12 @@ def sha256_file(path:str) -> str:
     return h.hexdigest()
 
 def download_file(url: str, path: str, slug: str, timestamp:tuple[float, float]|None = None) -> bool:
-    response = requests.get(url)
-    if response.status_code != 200:
-        print(f"[ERROR] Failed to fetch {slug} at {url} : Code {response.status_code}")
+    """Downloads the package for updating"""
+    try:
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+    except requests.RequestException as e:
+        print(f"[ERROR] Failed to fetch {slug} at {url} : {e}")
         return False
     
     with open(path, "wb") as f:
@@ -40,7 +57,18 @@ def download_file(url: str, path: str, slug: str, timestamp:tuple[float, float]|
     return True
 
 def get_latest_release(is_update: bool) -> ReleaseData | None :
-    """checks if there's a new release"""
+    """Fetches Github to get Pleiades's latest release's data
+    
+    Parameters
+    ----------
+    is_update : bool
+        var to run the function in update-mode or normal mode
+    
+    Returns
+    -------
+    data : ReleaseData
+        Github API response containing release data
+    """
 
     url = "https://api.github.com/repos/Azagal258/test-for-versioning/releases/latest"
     token = dotenv.get_key(".env", "gh_api_token")
@@ -65,7 +93,7 @@ def get_latest_release(is_update: bool) -> ReleaseData | None :
         print(f"[WARN] {prefix}Couldn't fetch latest release data : {e}")
         return None
     
-    if is_update and "--force-update" in sys.argv:
+    if is_update and FORCE_UPDATE:
         return data
     
     latest_version = data.get("tag_name")
@@ -87,6 +115,17 @@ def get_latest_release(is_update: bool) -> ReleaseData | None :
     return None
 
 def get_release_assets(data: ReleaseData) -> AssetData | None:
+    """
+    Parameters
+    ----------
+    data : ReleaseData
+        Github API response containing release data 
+
+    Returns
+    -------
+    update_package : AssetData
+        Content required to fetch the update package 
+    """
     update_package = None
     assets = data["assets"]
 
@@ -94,7 +133,7 @@ def get_release_assets(data: ReleaseData) -> AssetData | None:
         print("[ERROR] No assets found in the release")
         return None
 
-    if "--force-update" in sys.argv:
+    if FORCE_UPDATE:
         for asset in assets:
             if asset["name"].startswith("package") and asset["name"].endswith(".zip"):
                 update_package = asset
@@ -112,65 +151,78 @@ def get_release_assets(data: ReleaseData) -> AssetData | None:
     
     return update_package
 
-def zip_safety_check(zip_path: str, dest_dir: str) -> None:
+def extract_zip(zip_path: str, dest_dir: str) -> None:
+    """Extracts the archive to the designated location
+
+    Parameters
+    ----------
+    zip_path: str
+        path to the archive
+    dest_dir: str
+        path to decompress to
+    """
     dest = Path(dest_dir).resolve()
-
-    with zipfile.ZipFile(zip_path, "r") as zip:
-        for member in zip.infolist():
+    with zipfile.ZipFile(zip_path, "r") as archive:
+        for member in archive.infolist():
             target = (dest / member.filename).resolve()
-            print(target)
             if not str(target).startswith(str(dest)):
-                raise RuntimeError(f"Attempted zip-slip exploit: {member.filename}")
-        zip.extractall(dest)
+                raise RuntimeError(f"[CRITICAL] Attempted zip-slip exploit: {member.filename}")
+        archive.extractall(dest)
 
-def extract_zip(zip_path: str):
-    try :
-        zip_safety_check(zip_path, "./update_temp/")
-    except RuntimeError as RunE:
-        print(f"{RunE}\nThat archive is not legit. Check sources")
-
-def do_update():
+def do_update() -> None:
+    """Replaces old files with the contents from the update folder"""
     for file in os.listdir("./update_temp/"):
         try :
             os.replace(f"update_temp/{file}", file)
         except Exception as e:
-            print(f"Failed to update {file} : {e}")
+            print(f"[ERROR] Failed to update {file} : {e}")
+    
+    if os.listdir("./update_temp/"):
+        raise RuntimeError("[ERROR] Incomplete update")
     os.rmdir("./update_temp/")
 
-
 def main_update():
+    # To not run on partially updated contents
     dotenv.set_key(".env", "has_update_finished", "false")
     
     release_data = get_latest_release(True)
     if release_data is None :
         raise RuntimeError
 
-    pacakge = get_release_assets(release_data)
-    if pacakge is None :
+    package = get_release_assets(release_data)
+    if package is None :
         raise RuntimeError
     
-    try :
-        DL_url = pacakge["browser_download_url"]
-        name = pacakge["name"]
-        DL_path = f"./{name}"
-        pacakge_hash = pacakge["digest"]
-    except KeyError as e:
-        raise RuntimeError(f"[ERROR] Can't get essential values from asset : {e}")
+    # Useful values
+    DL_url = package["browser_download_url"]
+    name = package["name"]
+    DL_path = f"./{name}"
+    package_hash = package["digest"]
 
-    if download_file(DL_url, DL_path, name):
+    # If the download fails, stop everything
+    if not download_file(DL_url, DL_path, name):
+        raise RuntimeError 
     
-        hash = sha256_file(name)
-        gh_hash:str = pacakge_hash.split(":")[1]
+    # Ensures no corruption of the file
+    file_hash = sha256_file(name)
+    algo, _, gh_hash = package_hash.partition(":")
+    if algo != "sha256" or not gh_hash:
+        raise RuntimeError("[ERROR] Unsupported digest format")
 
-        print(f"Calculated hash : {hash}")
-        print(f"GH hash : {gh_hash}")
+    print(f"Calculated hash : {file_hash}")
+    print(f"GH hash : {gh_hash}")
 
-        is_expected_archive = (hash == gh_hash)
-        if is_expected_archive:
-            extract_zip(name)
-            do_update()
-        else:
-            print("something failed...")
+    is_expected_archive = (file_hash == gh_hash)
+    if not is_expected_archive:
+        raise RuntimeError("[ERROR] File received doesn't match expected file. Aborting...")
+    
+    try :
+        extract_zip(name, "./update_temp/")
+    except RuntimeError as RunE:
+        raise RuntimeError(f"{RunE}\n[ERROR] That archive is not legit, do not attempt to update with that release")
+
+    do_update()
+
 
     print("Update finished, reminder to reboot")
     dotenv.set_key(".env", "has_update_finished", "true")
@@ -178,7 +230,10 @@ def main_update():
 if __name__ == "__main__":
     try :
         main_update()
-    except RuntimeError:
-        print("[ERROR] Update failed")
+    except RuntimeError as e:
+        print(
+            f"{e}"
+            "[ERROR] Update failed, please retry later"
+        )
         input("Press Enter to quit...")
         sys.exit()
