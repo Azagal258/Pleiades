@@ -201,8 +201,10 @@ def download_file(url: str, path: str, slug: str, timestamp:tuple[float, float]|
     timestamp : tuple[float]
         Creation date of the objekt
     """
-    response = requests.get(url)
-    if response.status_code != 200:
+    try:
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+    except requests.RequestException as e:
         print(f"[ERROR] Failed to fetch {slug} at {url} : Code {response.status_code}")
         return False
     
