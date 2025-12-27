@@ -15,7 +15,7 @@ Additionally a bash shell script allows to :
 ## Requirements
 
 For the downloader
-- Python 3.6+
+- Python 3.10+
 - `python-dotenv` module
 - `requests` module
 
