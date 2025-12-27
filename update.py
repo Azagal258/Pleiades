@@ -17,9 +17,6 @@ class ReleaseData(TypedDict):
     immutable: bool
     assets: list[AssetData]
 
-FORCE_UPDATE = "--force-update" in sys.argv
-UPDATE = "--update" in sys.argv
-
 __version__ = "v.0.1.0"
 
 def sha256_file(path:str) -> str:
@@ -56,7 +53,19 @@ def download_file(url: str, path: str, slug: str, timestamp:tuple[float, float]|
         os.utime(path, timestamp)
     return True
 
-def get_latest_release(is_update: bool) -> ReleaseData | None :
+def decide_update_status(latest_version:str|None, current_version:str, is_update:bool, force_update:bool):
+    if force_update:
+        return "force"
+    elif not latest_version:
+        return "unknown"
+    elif latest_version != current_version and not is_update:
+        return "available"
+    elif latest_version == current_version and is_update:
+        return "already"
+
+    return "ok"
+
+def get_latest_release(is_update: bool, is_force_update: bool) -> ReleaseData | None :
     """Fetches Github to get Pleiades's latest release's data
     
     Parameters
@@ -78,7 +87,8 @@ def get_latest_release(is_update: bool) -> ReleaseData | None :
         "Authorization": f"Bearer {token}",
     }
 
-    prefix = "Update check failed: " if is_update else ""
+    update_check = is_update or is_force_update
+    prefix = "Update check failed: " if not update_check else ""
 
     try:
         response = requests.get(url, headers=headers, timeout=10)
@@ -89,32 +99,30 @@ def get_latest_release(is_update: bool) -> ReleaseData | None :
 
     try:
         data:ReleaseData = response.json()
-    except Exception as e:
+    except (requests.JSONDecodeError, ValueError) as e:
         print(f"[WARN] {prefix}Couldn't fetch latest release data : {e}")
         return None
     
-    if is_update and FORCE_UPDATE:
-        return data
-    
     latest_version = data.get("tag_name")
-    if latest_version and latest_version != __version__:
+    status = decide_update_status(latest_version, __version__, is_update, is_force_update)
+
+    if status in ["force", "ok"]:
+        return data
+    elif status == "already":
+        sys.exit("[INFO] Already up-to-date. Exiting")
+    elif status == "available":
         print(
             f"[INFO] New version available: {__version__} -> {latest_version}\n"
             "[INFO] Run the script with flag '--update' to update"
         )
-    elif not latest_version:
+    elif status == "unknown":
         print(
-            "[WARN] Couldn't determine the latest release's version"
-            "[WARN] Run with the flag --force-update to proceed without checking version" 
-            "[WARN] Use only if the update system is broken. Manually verify releases before using"
+            "[WARN] Couldn't determine the latest release's version\n"
+            "[WARN] Run with the flag --force-update to proceed without checking version\n" 
+            "[WARN] Use only if the update system is broken. Manually verify releases before using\n"
         )
 
-    if is_update:
-        return data
-
-    return None
-
-def get_release_assets(data: ReleaseData) -> AssetData | None:
+def get_release_assets(data: ReleaseData, is_force_update: bool) -> AssetData | None:
     """
     Parameters
     ----------
@@ -127,13 +135,13 @@ def get_release_assets(data: ReleaseData) -> AssetData | None:
         Content required to fetch the update package 
     """
     update_package = None
-    assets = data["assets"]
+    assets = data.get("assets")
 
     if not assets:
         print("[ERROR] No assets found in the release")
         return None
 
-    if FORCE_UPDATE:
+    if is_force_update:
         for asset in assets:
             if asset["name"].startswith("package") and asset["name"].endswith(".zip"):
                 update_package = asset
@@ -182,14 +190,20 @@ def do_update() -> None:
     os.rmdir("./update_temp/")
 
 def main_update():
+    # process flags and ensure only one is passed
+    is_force_update = "--force-update" in sys.argv
+    is_update = "--update" in sys.argv
+    if is_update and is_force_update:
+        sys.exit("[ERROR] --update and --force-update cannot be used together")
+    
     # To not run on partially updated contents
     dotenv.set_key(".env", "has_update_finished", "false")
     
-    release_data = get_latest_release(True)
+    release_data = get_latest_release(is_update, is_force_update)
     if release_data is None :
         raise RuntimeError
 
-    package = get_release_assets(release_data)
+    package = get_release_assets(release_data, is_force_update)
     if package is None :
         raise RuntimeError
     
@@ -235,5 +249,4 @@ if __name__ == "__main__":
             f"{e}"
             "[ERROR] Update failed, please retry later"
         )
-        input("Press Enter to quit...")
         sys.exit()
