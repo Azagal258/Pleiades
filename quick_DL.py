@@ -281,6 +281,14 @@ def main() -> None:
         "JuHo" : "id6",
         "JiWoon" : "id7",
         "HwanHee" : "id8",
+        "CheongMyeong" : "id9",
+        "Towa" : "id10",
+        "KyuHyuk" : "id11",
+        "NuRi" : "id12",
+        "SeongJun" : "id13",
+        "YeJoon" : "id14",
+        "GyeongBeen" : "id15",
+        "EunSoo" : "id16",
     }
 
     env_path = ".env"
