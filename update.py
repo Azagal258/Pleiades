@@ -3,7 +3,7 @@ import os
 import dotenv
 import hashlib
 import zipfile
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import TypedDict
 import sys
 
@@ -170,10 +170,20 @@ def extract_zip(zip_path: str, dest_dir: str) -> None:
         path to decompress to
     """
     dest = Path(dest_dir).resolve()
-    with zipfile.ZipFile(zip_path, "r") as archive:
+    zip_normalized = Path(zip_path)
+
+    with zipfile.ZipFile(zip_normalized, "r") as archive:
         for member in archive.infolist():
+            name = PurePosixPath(member.filename)
+            # Reject absolute POSIX paths
+            if name.is_absolute():
+                raise RuntimeError(f"[CRITICAL] Absolute path used, anormal structure: {member.filename}")
+            # Reject Windows-style paths
+            if "\\" in member.filename or ":" in member.filename:
+                raise RuntimeError(f"[CRITICAL] Windows path used, anormal structure: {member.filename}")            
+            # Reject paths outside of the destination directory
             target = (dest / member.filename).resolve()
-            if not str(target).startswith(str(dest)):
+            if not target.is_relative_to(dest):
                 raise RuntimeError(f"[CRITICAL] Attempted zip-slip exploit: {member.filename}")
         archive.extractall(dest)
 
