@@ -241,12 +241,13 @@ def main_update():
     print("Update finished, reminder to reboot")
     dotenv.set_key(".env", "has_update_finished", "true")
 
-if __name__ == "__main__":
+def run():
     try :
         main_update()
     except RuntimeError as e:
-        print(
-            f"{e}"
-            "[ERROR] Update failed, please retry later"
-        )
-        sys.exit()
+        print(f"{e}\n[ERROR] Update failed, please retry later")
+        return 1
+    return 0
+
+if __name__ == "__main__": # pragma: no cover
+    sys.exit(run())
