@@ -3,6 +3,7 @@
 import json
 import requests
 import os
+import sys
 from datetime import datetime
 import dotenv
 
@@ -206,7 +207,7 @@ def download_file(url: str, path: str, slug: str, timestamp:tuple[float, float]|
         response = requests.get(url, timeout=10)
         response.raise_for_status()
     except requests.RequestException as e:
-        print(f"[ERROR] Failed to fetch {slug} at {url} : Code {response.status_code}")
+        print(f"[ERROR] Failed to fetch {slug} at {url} : {e}")
         return False
     
     with open(path, "wb") as f:
@@ -216,14 +217,13 @@ def download_file(url: str, path: str, slug: str, timestamp:tuple[float, float]|
     return True
 
 def new_batch_prompt() -> None:
-    reply = input("Download a new batch? (yes/no)\n")
-    if reply.lower() in ["yes","y"]:
-        main()
-    elif reply.lower() in ["no","n"]:
-        print("[INFO] Shutting down...")
-        exit()
-    else:
-        new_batch_prompt()
+    while True:
+        reply = input("Download a new batch? (yes/no)\n")
+        if reply.lower() in ["yes","y"]:
+            main()
+        elif reply.lower() in ["no","n"]:
+            print("[INFO] Shutting down...")
+            sys.exit()
 
 def utime_timestamp(timestamp : str) -> tuple[float, float]:
     """Convert an ISO timestamp to a UNIX timstamp"""
@@ -310,5 +310,5 @@ def main() -> None:
 
 ### Process ###
 
-if __name__ == '__main__':
+if __name__ == '__main__': # pragma: no cover
     main()
