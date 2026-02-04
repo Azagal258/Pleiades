@@ -1,3 +1,4 @@
+from quick_DL import download_file
 import requests
 import os
 import dotenv
@@ -37,21 +38,6 @@ def sha256_file(path:str) -> str:
         for chunk in iter(lambda: f.read(8192), b""): 
             h.update(chunk) 
     return h.hexdigest()
-
-def download_file(url: str, path: str, slug: str, timestamp:tuple[float, float]|None = None) -> bool:
-    """Downloads the package for updating"""
-    try:
-        response = requests.get(url, timeout=10)
-        response.raise_for_status()
-    except requests.RequestException as e:
-        print(f"[ERROR] Failed to fetch {slug} at {url} : {e}")
-        return False
-    
-    with open(path, "wb") as f:
-        f.write(response.content)
-    if timestamp is not None:
-        os.utime(path, timestamp)
-    return True
 
 def decide_update_status(latest_version:str|None, current_version:str, is_update:bool, force_update:bool):
     if force_update:
@@ -230,7 +216,8 @@ def main_update():
     # Ensures no corruption of the file
     file_hash = sha256_file(name)
     algo, _, gh_hash = package_hash.partition(":")
-    if algo != "sha256" or not gh_hash:
+    print(algo, gh_hash)
+    if not (algo == "sha256" and gh_hash):
         raise RuntimeError("[ERROR] Unsupported digest format")
 
     print(f"Calculated hash : {file_hash}")
@@ -246,7 +233,6 @@ def main_update():
         raise RuntimeError(f"{RunE}\n[ERROR] That archive is not legit, do not attempt to update with that release")
 
     do_update()
-
 
     print("Update finished, reminder to reboot")
     dotenv.set_key(".env", "has_update_finished", "true")
