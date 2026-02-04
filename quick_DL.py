@@ -83,15 +83,16 @@ def fetch_objekt_data(group: str, timestamp:str) -> list[dict[str,str]]:
     data = {'query': query}
     objekts: list[dict[str,str]] = []
 
-    response = requests.post(url, headers=headers, data=json.dumps(data))
-
-    if response.status_code == 200:
-        try:
-            objekts = response.json()['data']['collections']
-        except Exception as e:
-            print(f"[WARN] Couldn't fetch objekt data : {e}")
-    else:
-        print(f"[ERROR] Couldn't reach the API : Code {response.status_code}")
+    try:
+        response = requests.post(url, headers=headers, data=json.dumps(data))
+        response.raise_for_status()
+        objekts = response.json()['data']['collections']
+    except requests.JSONDecodeError as e:
+        print(f"[WARN] Couldn't fetch objekt data : {e}")
+    except KeyError :
+        print(f"[ERROR] Invalid response structure")
+    except requests.RequestException as req_err:
+        print(f"[ERROR] Couldn't reach the API : {req_err}")
 
     return objekts
 
